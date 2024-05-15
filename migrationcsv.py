@@ -40,18 +40,16 @@ def extract_table_structure(file_path):
     if not create_table_sql:
         raise ValueError("No 'CREATE TABLE' statement found in the input file.")
     
-    table_name_match = re.search(r'CREATE TABLE (\S+)', create_table_sql)
+    table_name_match = re.search(r'CREATE TABLE `([^`]+)`', create_table_sql)
     if not table_name_match:
         raise ValueError("No table name found in the 'CREATE TABLE' statement.")
     table_name = table_name_match.group(1)
     
-    columns = re.findall(r'\(\s*(.*)\s*\)', create_table_sql, re.DOTALL)
-    if not columns:
-        raise ValueError("No columns found in the 'CREATE TABLE' statement.")
+    columns_matches = re.findall(r',\s*`(\S+)`', create_table_sql)
+    column_names = [match for i, match in enumerate(column_matches) if i > 0]  # Skip the table name itself
+    num_columns = len(column_names)
     
-    columns = columns[0].split(',')
-    num_columns = len(columns)
-    return table_name, num_columns
+    return table_name, column_names, num_columns
 
 def print_progress(iteration, total):
     bar_length = 50
@@ -118,12 +116,13 @@ if __name__ == "__main__":
     if not input_sql_file.lower().endswith('.sql'):
         print(f"Error: Input file '{input_sql_file}' is not an SQL file.")
         sys.exit(1)
+    
     print(f"This script helps export data from an SQL table dump to a CSV file.\n\nCopyright (C) 2024 < Author : github.com/dalymr >\n\nThis program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License or any later version.\n\n ")
     time.sleep(2)
     print(f"*** Reading from file: {input_sql_file}")
 
     try:
-        table_name, num_columns = extract_table_structure(input_sql_file)
+        table_name, column_names, num_columns = extract_table_structure(input_sql_file)
         print(f"*** Detected table dump: {table_name}")
         print(f"*** Number of columns found: {num_columns}")
     except Exception as e:
@@ -131,7 +130,6 @@ if __name__ == "__main__":
         sys.exit(1)
 
     try:
-        column_names = ['column' + str(i) for i in range(1, num_columns + 1)]
         total_rows = count_total_rows(input_sql_file)
         if total_rows == 0:
             print("Error: No valid 'INSERT INTO' statements found in the input file.")
@@ -140,6 +138,7 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"Error processing input file: {e}")
         sys.exit(1)
+    
     print("Buffering data from SQL file... \n\n\n")
 
     try:
